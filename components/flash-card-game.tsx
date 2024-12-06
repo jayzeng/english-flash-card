@@ -36,12 +36,13 @@ declare global {
 import { useState, useEffect, useCallback, useRef, useMemo } from "react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Shuffle, ChevronLeft, ChevronRight, Volume2, RefreshCw, Mic, Pencil } from 'lucide-react'
+import { Shuffle, ChevronLeft, ChevronRight, Volume2, Mic, Pencil } from 'lucide-react'
 import { motion, AnimatePresence } from "framer-motion"
 import { speech } from "@/utils/SpeechHandler"
 import { FLASHCARDS } from "@/data/flashcards"
 import { celebrate } from "@/utils/confetti"
 import { playSuccessSound, playFailureSound } from "@/utils/audio"
+import Image from 'next/image'
 
 interface FlashCard {
   word: string
@@ -61,16 +62,25 @@ export function FlashCardGame() {
 
   const handleSpeak = useCallback((word: string) => {
     if (isSpellingMode) {
+      if (recognitionRef.current) {
+        recognitionRef.current.abort();
+      }
+      
       speech.speak(word)
       setTimeout(() => {
         speech.speak("Please spell the word")
         setIsFadingOut(false)
         if (recognitionRef.current) {
           setTimeout(() => {
-            recognitionRef.current?.start()
+            try {
+              recognitionRef.current?.start()
+            } catch (error) {
+              console.error('Speech recognition error:', error)
+              setSpellResult('Error starting speech recognition. Please try again.')
+            }
           }, 1000)
         }
-      }, 1000) // Wait for 1 second after speaking the word
+      }, 1000)
     } else {
       speech.speak(word)
     }
@@ -153,6 +163,16 @@ export function FlashCardGame() {
     localStorage.setItem('playedWords', JSON.stringify([...playedWords]))
   }, [playedWords])
 
+  const goToPreviousCard = useCallback(() => {
+    const previousIndex = (currentCardIndex - 1 + cards.length) % cards.length
+    setCurrentCardIndex(previousIndex)
+    setVisitedCards(prev => new Set([...prev, previousIndex]))
+    handleSpeak(cards[previousIndex].word)
+    setSpellResult(null)
+    setIsFadingOut(false)
+    setPlayedWords(prev => new Set([...prev, cards[previousIndex].word]))
+  }, [currentCardIndex, cards, handleSpeak])
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === '<' || e.key === 'ArrowLeft') {
@@ -163,7 +183,7 @@ export function FlashCardGame() {
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [])
+  }, [goToNextCard, goToPreviousCard])
 
   const shuffleCards = useCallback(() => {
     const unplayedCards = cards.filter(card => !playedWords.has(card.word))
@@ -175,16 +195,6 @@ export function FlashCardGame() {
     handleSpeak(shuffled[0].word)
     setPlayedWords(prev => new Set([...prev, shuffled[0].word]))
   }, [cards, handleSpeak, playedWords])
-
-  const goToPreviousCard = useCallback(() => {
-    const previousIndex = (currentCardIndex - 1 + cards.length) % cards.length
-    setCurrentCardIndex(previousIndex)
-    setVisitedCards(prev => new Set([...prev, previousIndex]))
-    handleSpeak(cards[previousIndex].word)
-    setSpellResult(null)
-    setIsFadingOut(false)
-    setPlayedWords(prev => new Set([...prev, cards[previousIndex].word]))
-  }, [currentCardIndex, cards, handleSpeak])
 
   const newSet = useCallback(() => {
     const unplayedCards = shuffledCards.filter(card => !playedWords.has(card.word))
@@ -254,10 +264,13 @@ export function FlashCardGame() {
               {isSpellingMode ? <Pencil className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
             </Button>
             <h2 className="text-4xl font-bold mb-4 text-blue-600">{isSpellingMode ? '???' : cards[currentCardIndex].word}</h2>
-            <img
+            <Image
               src={cards[currentCardIndex].image}
               alt={cards[currentCardIndex].word}
+              width={500}
+              height={192}
               className="w-full h-48 object-cover rounded-lg mb-4"
+              priority
             />
             <Button 
               onClick={(e) => {
