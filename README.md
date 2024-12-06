@@ -1,3 +1,8 @@
+# English Flash Cards
+
+[![CI/CD](https://github.com/{username}/{repo-name}/actions/workflows/ci.yml/badge.svg)](https://github.com/{username}/{repo-name}/actions/workflows/ci.yml)
+[![Fly Deploy](https://img.shields.io/badge/Deployed%20on-Fly.io-blue)](https://english-flash-cards.fly.dev)
+
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
 ## Getting Started
