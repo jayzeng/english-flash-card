@@ -36,13 +36,14 @@ declare global {
 import { useState, useEffect, useCallback, useRef, useMemo } from "react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Shuffle, ChevronLeft, ChevronRight, Volume2, Mic, Pencil } from 'lucide-react'
+import { Shuffle, ChevronLeft, ChevronRight, Volume2, Mic, Pencil, Menu } from 'lucide-react'
 import { motion, AnimatePresence } from "framer-motion"
 import { speech } from "@/utils/SpeechHandler"
 import { FLASHCARDS } from "@/data/flashcards"
 import { celebrate } from "@/utils/confetti"
 import { playSuccessSound, playFailureSound } from "@/utils/audio"
 import Image from 'next/image'
+import { OnboardingModal, UserSettings } from './onboarding-modal'
 
 interface FlashCard {
   word: string
@@ -59,8 +60,13 @@ export function FlashCardGame() {
   const [isFadingOut, setIsFadingOut] = useState(false)
   const [playedWords, setPlayedWords] = useState<Set<string>>(new Set())
   const recognitionRef = useRef<SpeechRecognition | null>(null)
+  const [showOnboarding, setShowOnboarding] = useState(true)
+  const [showSettings, setShowSettings] = useState(false)
+  const [userSettings, setUserSettings] = useState<UserSettings | null>(null)
 
   const handleSpeak = useCallback((word: string) => {
+    if (typeof window === 'undefined') return;
+    
     if (isSpellingMode) {
       if (recognitionRef.current) {
         recognitionRef.current.abort();
@@ -235,9 +241,37 @@ export function FlashCardGame() {
 
   const progress = (visitedCards.size / cards.length) * 100
 
+  useEffect(() => {
+    const savedSettings = localStorage.getItem('userSettings')
+    if (savedSettings) {
+      setUserSettings(JSON.parse(savedSettings))
+      setShowOnboarding(false)
+    }
+  }, [])
+
+  const handleSaveSettings = (settings: UserSettings) => {
+    setUserSettings(settings)
+    localStorage.setItem('userSettings', JSON.stringify(settings))
+  }
+
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-b from-blue-100 to-blue-200 p-4">
-      <h1 className="text-3xl font-bold mb-8 text-blue-800">English Flash Cards</h1>
+      <div className="w-full max-w-sm flex justify-between items-center mb-8">
+        <h1 className="text-3xl font-bold text-blue-800">English Flash Cards</h1>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => setShowSettings(true)}
+          className="ml-2"
+        >
+          <Menu className="h-6 w-6" />
+        </Button>
+      </div>
+      {userSettings && (
+        <p className="text-lg text-blue-600 mb-4">
+          Welcome, {userSettings.name}!
+        </p>
+      )}
       <AnimatePresence mode="wait">
         <motion.div
           key={currentCardIndex}
@@ -324,6 +358,18 @@ export function FlashCardGame() {
       <p className="mt-2 text-blue-800">
         Words learned: {visitedCards.size} / {cards.length}
       </p>
+      <OnboardingModal
+        open={showOnboarding}
+        onClose={() => setShowOnboarding(false)}
+        onSave={handleSaveSettings}
+      />
+      
+      <OnboardingModal
+        open={showSettings}
+        onClose={() => setShowSettings(false)}
+        onSave={handleSaveSettings}
+        initialSettings={userSettings || undefined}
+      />
     </div>
   )
 }
